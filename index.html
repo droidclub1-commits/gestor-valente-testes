@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor Valente</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- PERFORMANCE: MarkerCluster agrupa pins no mapa — essencial para 25k registros -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-slate-100">
+    <div id="toast-container" class="fixed top-5 right-5 z-[1000] space-y-2"></div>
+
+    <div id="login-page" class="flex flex-col items-center justify-center h-screen bg-gray-200">
+        <div class="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
+            <div class="text-center">
+                 <div class="mx-auto w-16 h-16 flex items-end gap-1">
+                     <div class="w-1/3 h-1/2 bg-sky-400 rounded-sm"></div>
+                     <div class="w-1/3 h-full bg-sky-500 rounded-sm"></div>
+                     <div class="w-1/3 h-1/3 bg-sky-600 rounded-sm"></div>
+                 </div>
+                <h2 class="mt-6 text-3xl font-bold text-gray-900">GESTOR VALENTE</h2>
+                <p class="mt-2 text-sm text-gray-600">Por favor, inicie a sessão para continuar</p>
+            </div>
+            <form id="login-form" class="mt-8 space-y-6">
+                <div class="rounded-md shadow-sm -space-y-px">
+                    <div>
+                        <label for="email-address" class="sr-only">Endereço de email</label>
+                        <input id="email-address" name="email" type="email" autocomplete="email" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" placeholder="Endereço de email">
+                    </div>
+                    <div>
+                        <label for="password" class="sr-only">Palavra-passe</label>
+                        <input id="password" name="password" type="password" autocomplete="current-password" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" placeholder="Palavra-passe">
+                    </div>
+                </div>
+                <div>
+                    <button type="submit" id="login-btn" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Entrar
+                    </button>
+                </div>
+            </form>
+        </div>
+        <p class="mt-8 text-xs text-gray-500 font-medium">2025 GESTOR VALENTE© - todos os direitos reservados.</p>
+    </div>
+
+    <div id="app-container" class="hidden h-screen">
+        <aside class="w-64 bg-slate-800 text-white flex flex-col">
+            <a href="#" id="logo-btn" class="p-6 flex items-center gap-3 border-b border-slate-700 cursor-pointer">
+                <div class="w-10 h-10 flex items-end gap-1">
+                    <div class="w-1/3 h-1/2 bg-sky-400 rounded-sm"></div>
+                    <div class="w-1/3 h-full bg-sky-500 rounded-sm"></div>
+                    <div class="w-1/3 h-1/3 bg-sky-600 rounded-sm"></div>
+                </div>
+                <span class="text-xl font-bold">GESTOR VALENTE</span>
+            </a>
+            <nav id="sidebar-nav" class="flex-1 p-4">
+                <ul>
+                    <li><a href="#dashboard" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg bg-slate-900 font-semibold"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>Dashboard</a></li>
+                    <li><a href="#cidadaos" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-700 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Cidadãos</a></li>
+                    <li><a href="#demandas" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-700 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>Demandas</a></li>
+                    <li><a href="#mapa" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-700 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Mapa</a></li>
+                </ul>
+            </nav>
+            <div class="p-4 mt-auto border-t border-slate-700">
+                <button id="logout-btn" class="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg bg-red-600 hover:bg-red-700 transition-colors shadow-lg mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    Sair
+                </button>
+                <div class="text-center mt-2">
+                    <p class="text-[9px] text-slate-600 font-normal tracking-wide hover:text-slate-500 transition-colors cursor-default">© 2025 GESTOR VALENTE</p>
+                </div>
+            </div>
+        </aside>
+
+        <div class="flex-1 flex flex-col h-screen">
+            <main id="dashboard-page" class="page flex flex-col flex-1 overflow-hidden">
+                 <header class="bg-white p-6 border-b"><h1 class="text-2xl font-bold text-gray-800">Dashboard Estratégico</h1><p class="text-gray-600">Visão geral e insights da sua base de contatos.</p></header>
+                <div class="flex-1 p-6 overflow-y-auto">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-white p-6 rounded-lg shadow-sm"><h3 class="text-lg font-semibold text-gray-500">Total de Cidadãos</h3><p id="dashboard-total-cidadaos" class="text-4xl font-bold text-blue-600">0</p></div>
+                            <div class="bg-white p-6 rounded-lg shadow-sm"><h3 class="text-lg font-semibold text-gray-500">Total de Demandas</h3><p id="dashboard-total-demandas" class="text-4xl font-bold text-purple-600">0</p></div>
+                            <div class="bg-white p-6 rounded-lg shadow-sm md:col-span-2">
+                                <h3 class="text-lg font-semibold text-gray-500 mb-4">Cidadãos por Tipo</h3>
+                                <div class="relative h-80"><canvas id="cidadaos-por-tipo-chart"></canvas></div>
+                            </div>
+                            <div class="bg-white p-6 rounded-lg shadow-sm md:col-span-2">
+                                <h3 class="text-lg font-semibold text-gray-500 mb-4">Demandas por Status</h3>
+                                <div class="relative h-80"><canvas id="demandas-por-status-chart"></canvas></div>
+                            </div>
+                            <div class="bg-white p-6 rounded-lg shadow-sm md:col-span-2">
+                                <h3 class="text-lg font-semibold text-gray-500 mb-4">Cidadãos por Bairro (Top 10)</h3>
+                                <div class="relative h-96"><canvas id="cidadaos-por-bairro-chart"></canvas></div>
+                            </div>
+                            <div class="bg-white p-6 rounded-lg shadow-sm">
+                                <h3 class="text-lg font-semibold text-gray-500 mb-4">Cidadãos por Sexo</h3>
+                                <div class="relative h-80"><canvas id="cidadaos-por-sexo-chart"></canvas></div>
+                            </div>
+                            <div class="bg-white p-6 rounded-lg shadow-sm">
+                                <h3 class="text-lg font-semibold text-gray-500 mb-4">Cidadãos por Faixa Etária</h3>
+                                <div class="relative h-80"><canvas id="cidadaos-por-faixa-etaria-chart"></canvas></div>
+                            </div>
+                        </div>
+                        <div class="lg:col-span-1 space-y-6">
+                            <div class="bg-white p-6 rounded-lg shadow-sm"><h3 class="text-lg font-semibold text-gray-500 mb-4">Aniversariantes do Mês</h3><div id="aniversariantes-list" class="space-y-3 max-h-48 overflow-y-auto"></div></div>
+                            <div class="bg-white p-6 rounded-lg shadow-sm"><h3 class="text-lg font-semibold text-gray-500 mb-4">Demandas Recentes</h3><div id="demandas-recentes-list" class="space-y-3 max-h-96 overflow-y-auto"></div></div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+            
+            <main id="cidadaos-page" class="page hidden flex flex-col flex-1 overflow-hidden">
+                 <header class="bg-white p-6 border-b space-y-4">
+                      <div class="flex justify-between items-center gap-4">
+                          <div><h1 class="text-2xl font-bold text-gray-800">Gestão de Cidadãos</h1><p class="text-gray-600">Adicione, filtre e gerencie seus contatos na nuvem. <span id="cidadaos-count" class="font-semibold text-blue-600"></span></p></div>
+                          <div class="flex items-center gap-4">
+                               <button id="generate-report-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>Gerar Relatório</button>
+                               <button id="view-map-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Visualizar no Mapa</button>
+                               <button id="add-cidadao-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Adicionar Novo Cidadão</button>
+                          </div>
+                      </div>
+                      <div class="grid grid-cols-1 md:grid-cols-8 gap-4">
+                          <div class="relative md:col-span-2"><input type="text" id="search-input" placeholder="Buscar por nome, e-mail ou CPF..." class="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"><div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg></div></div>
+                          <select id="filter-type" class="w-full border-gray-300 rounded-lg bg-white"><option value="">Filtrar por Tipo</option><option>Apoiador</option><option>Liderança</option><option>Eleitor</option><option>Candidato</option><option>Outro</option></select>
+                          <select id="filter-bairro" class="w-full border-gray-300 rounded-lg bg-white"><option value="">Filtrar por Bairro</option></select>
+                          <select id="filter-leader" class="w-full border-gray-300 rounded-lg bg-white"><option value="">Filtrar por Liderança</option></select>
+                          <select id="filter-sexo" class="w-full border-gray-300 rounded-lg bg-white">
+                               <option value="">Filtrar por Sexo</option>
+                               <option value="Masculino">Masculino</option>
+                               <option value="Feminino">Feminino</option>
+                               <option value="Outro">Outro</option>
+                               <option value="Não Informar">Não Informar</option>
+                          </select>
+                          <select id="filter-faixa-etaria" class="w-full border-gray-300 rounded-lg bg-white">
+                               <option value="">Filtrar por Faixa Etária</option>
+                               <option value="0-17">0-17 anos</option>
+                               <option value="18-25">18-25 anos</option>
+                               <option value="26-35">26-35 anos</option>
+                               <option value="36-50">36-50 anos</option>
+                               <option value="51-65">51-65 anos</option>
+                               <option value="66+">66+ anos</option>
+                               <option value="N/A">Não Informada</option>
+                          </select>
+                          <button id="clear-filters-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg">Limpar Filtros</button>
+                      </div>
+                 </header>
+                <div class="flex-1 p-6 overflow-y-auto">
+                    <div id="cidadaos-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        <div class="col-span-full flex justify-center items-center py-12">
+                            <div class="flex flex-col items-center gap-3 text-gray-400">
+                                <div class="spinner border-gray-300 border-t-blue-500 w-8 h-8 border-2"></div>
+                                <p class="text-sm">A carregar cidadãos...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="load-more-container" class="text-center p-6 hidden">
+                        <button id="load-more-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-transform hover:scale-105">Carregar Mais Cidadãos</button>
+                    </div>
+                </div>
+            </main>
+
+            <main id="demandas-page" class="page hidden flex flex-col flex-1 overflow-hidden">
+                <header class="bg-white p-6 border-b space-y-4">
+                     <div class="flex justify-between items-center gap-4">
+                          <div><h1 class="text-2xl font-bold text-gray-800">Central de Demandas</h1><p class="text-gray-600">Visualize e gerencie todas as solicitações.</p></div>
+                          <button id="add-demanda-geral-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Adicionar Nova Demanda</button>
+                     </div>
+                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <select id="demanda-filter-status" class="w-full border-gray-300 rounded-lg bg-white"><option value="">Filtrar por Status</option><option value="pending">Pendente</option><option value="inprogress">Em Andamento</option><option value="completed">Concluída</option></select>
+                          <select id="demanda-filter-leader" class="w-full border-gray-300 rounded-lg bg-white"><option value="">Filtrar por Liderança</option></select>
+                          <button id="demanda-clear-filters-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg">Limpar Filtros</button>
+                     </div>
+                </header>
+                <div class="flex-1 p-6 overflow-y-auto">
+                    <div id="all-demandas-list" class="space-y-3"></div>
+                </div>
+            </main>
+        </div>
+
+        <div id="cidadao-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-40 overflow-y-auto p-4">
+            <div class="bg-white rounded-lg p-8 shadow-2xl w-full max-w-4xl transform transition-all scale-95 opacity-0 my-auto" id="modal-content">
+                <div class="flex justify-between items-center mb-6"><h2 id="cidadao-modal-title" class="text-2xl font-bold">Adicionar Novo Cidadão</h2><button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-3xl leading-none">&times;</button></div>
+                <form id="cidadao-form">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-semibold text-gray-800 border-b pb-2">Dados Pessoais</h3>
+                            <div><label for="cidadao-name" class="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label><input type="text" id="cidadao-name" class="w-full border border-gray-300 p-2 rounded-lg" required></div>
+                            <div><label for="cidadao-email" class="block text-sm font-medium text-gray-700 mb-1">E-mail</label><input type="email" id="cidadao-email" class="w-full border border-gray-300 p-2 rounded-lg"></div> <div><label for="cidadao-dob" class="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento</label><input type="date" id="cidadao-dob" class="w-full border border-gray-300 p-2 rounded-lg"></div>
+                            <div>
+                                <label for="cidadao-sexo" class="block text-sm font-medium text-gray-700 mb-1">Sexo</label>
+                                <select id="cidadao-sexo" class="w-full border border-gray-300 p-2 rounded-lg bg-white">
+                                    <option value="Não Informar">Não Informar</option>
+                                    <option value="Masculino">Masculino</option>
+                                    <option value="Feminino">Feminino</option>
+                                    <option value="Outro">Outro</option>
+                                </select>
+                            </div>
+                            <div><label for="cidadao-profissao" class="block text-sm font-medium text-gray-700 mb-1">Profissão</label><input type="text" id="cidadao-profissao" class="w-full border border-gray-300 p-2 rounded-lg"></div>
+                            <div><label for="cidadao-local-trabalho" class="block text-sm font-medium text-gray-700 mb-1">Local de Trabalho</label><input type="text" id="cidadao-local-trabalho" class="w-full border border-gray-300 p-2 rounded-lg"></div>
+                            <div><label for="cidadao-leader" class="block text-sm font-medium text-gray-700 mb-1">Liderança que Indicou</label><select id="cidadao-leader" class="w-full border border-gray-300 p-2 rounded-lg bg-white"></select></div>
+                        </div>
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-semibold text-gray-800 border-b pb-2">Documentos e Contato</h3>
+                            <div><label for="cidadao-type" class="block text-sm font-medium text-gray-700 mb-1">Tipo</label><select id="cidadao-type" class="w-full border border-gray-300 p-2 rounded-lg bg-white"><option>Apoiador</option><option>Liderança</option><option>Eleitor</option><option>Candidato</option><option>Outro</option></select></div>
+                            <div><label for="cidadao-cpf" class="block text-sm font-medium text-gray-700 mb-1">CPF</label><input type="text" id="cidadao-cpf" class="w-full border border-gray-300 p-2 rounded-lg" placeholder="000.000.000-00"></div>
+                            <div><label for="cidadao-rg" class="block text-sm font-medium text-gray-700 mb-1">RG</label><input type="text" id="cidadao-rg" class="w-full border border-gray-300 p-2 rounded-lg"></div>
+                            <div><label for="cidadao-voterid" class="block text-sm font-medium text-gray-700 mb-1">Título de Eleitor</label><input type="text" id="cidadao-voterid" class="w-full border border-gray-300 p-2 rounded-lg" placeholder="0000 0000 0000"></div>
+                            <div>
+                                <label for="cidadao-phone" class="block text-sm font-medium text-gray-700 mb-1">Contato (Telefone)</label>
+                                <div class="flex items-center">
+                                    <input type="tel" id="cidadao-phone" class="w-full border border-gray-300 p-2 rounded-l-lg" placeholder="(00) 00000-0000">
+                                    <div class="flex items-center pl-3 pr-2 border-t border-b border-r rounded-r-lg h-full"><input id="cidadao-whatsapp" type="checkbox" class="h-4 w-4 text-green-600 border-gray-300 rounded"><label for="cidadao-whatsapp" class="ml-2 text-sm text-gray-600">WhatsApp</label></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-semibold text-gray-800 border-b pb-2">Endereço e Família</h3>
+                            <div><label for="cidadao-cep" class="block text-sm font-medium text-gray-700 mb-1">CEP</label><input type="text" id="cidadao-cep" class="w-full border border-gray-300 p-2 rounded-lg" placeholder="00000-000"></div>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div class="col-span-3"><label for="cidadao-logradouro" class="block text-sm font-medium text-gray-700 mb-1">Logradouro</label><input type="text" id="cidadao-logradouro" class="w-full border border-gray-300 p-2 rounded-lg"></div>
+                                <div><label for="cidadao-numero" class="block text-sm font-medium text-gray-700 mb-1">Nº</label><input type="text" id="cidadao-numero" class="w-full border border-gray-300 p-2 rounded-lg"></div>
+                                <div class="col-span-2"><label for="cidadao-complemento" class="block text-sm font-medium text-gray-700 mb-1">Complemento</label><input type="text" id="cidadao-complemento" class="w-full border border-gray-300 p-2 rounded-lg"></div>
+                                <div class="col-span-3"><label for="cidadao-bairro" class="block text-sm font-medium text-gray-700 mb-1">Bairro</label><input type="text" id="cidadao-bairro" class="w-full border border-gray-300 p-2 rounded-lg"></div>
+                                <div class="col-span-2"><label for="cidadao-cidade" class="block text-sm font-medium text-gray-700 mb-1">Cidade</label><input type="text" id="cidadao-cidade" class="w-full border border-gray-300 p-2 rounded-lg"></div>
+                                <div><label for="cidadao-estado" class="block text-sm font-medium text-gray-700 mb-1">UF</label><input type="text" id="cidadao-estado" class="w-full border border-gray-300 p-2 rounded-lg"></div>
+                            </div>
+                            <div class="flex gap-4 pt-2">
+                                <div><label for="cidadao-sons" class="block text-sm font-medium text-gray-700 mb-1">Filhos</label><input type="number" id="cidadao-sons" class="w-full border border-gray-300 p-2 rounded-lg" min="0" value="0"></div>
+                                <div><label for="cidadao-daughters" class="block text-sm font-medium text-gray-700 mb-1">Filhas</label><input type="number" id="cidadao-daughters" class="w-full border border-gray-300 p-2 rounded-lg" min="0" value="0"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="children-details-container" class="mt-6 space-y-4"></div>
+                    <div class="mt-6 border-t pt-4">
+                        <label class="block text-lg font-semibold text-gray-800 mb-2">Foto do Perfil</label>
+                        <div class="mt-1 flex rounded-md shadow-sm">
+                            <span class="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">URL</span>
+                            <input type="text" id="cidadao-photo-url" class="flex-1 block w-full rounded-none rounded-r-md sm:text-sm border-gray-300 p-2" placeholder="https://exemplo.com/foto.jpg">
+                        </div>
+                        <div class="mt-2 text-center text-sm text-gray-500">ou</div>
+                        <div class="mt-2">
+                            <label for="cidadao-photo-upload" class="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50">
+                                <span>Carregar um ficheiro</span>
+                                <input id="cidadao-photo-upload" name="cidadao-photo-upload" type="file" class="sr-only" accept="image/*">
+                            </label>
+                            <span id="file-name-display" class="ml-3 text-sm text-gray-600">Nenhum ficheiro selecionado</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-4 pt-6 mt-6 border-t">
+                        <button type="button" id="cancel-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg">Cancelar</button>
+                        <button type="submit" id="save-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg flex items-center justify-center gap-2">Salvar</button>
+                    </div>
+                </form>
+            </div>
+            <input type="hidden" id="cidadao-lat">
+            <input type="hidden" id="cidadao-long">
+        </div>
+        
+        <div id="cidadao-details-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50 overflow-y-auto p-4">
+            <div class="bg-white rounded-lg shadow-2xl w-full max-w-3xl transform transition-all scale-95 opacity-0 my-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center gap-4">
+                            <div id="details-photo" class="w-24 h-24 rounded-full"></div>
+                            <div><h2 id="details-name" class="text-2xl font-bold text-gray-800"></h2><p id="details-type" class="text-gray-600"></p></div>
+                        </div>
+                        <button id="close-details-modal-btn" class="text-gray-500 hover:text-gray-800 text-3xl leading-none">&times;</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-4">
+                        <div>
+                            <h3 class="font-semibold text-gray-500 text-sm mb-2">INFORMAÇÕES DE CONTATO</h3>
+                            <p><strong>Email:</strong> <span id="details-email"></span></p>
+                            <p><strong>Telefone:</strong> <span id="details-phone"></span></p>
+                            <p><strong>Endereço:</strong> <span id="details-address"></span></p>
+                        </div>
+                         <div>
+                            <h3 class="font-semibold text-gray-500 text-sm mb-2">DOCUMENTOS</h3>
+                            <p><strong>CPF:</strong> <span id="details-cpf"></span></p>
+                            <p><strong>RG:</strong> <span id="details-rg"></span></p>
+                            <p><strong>Título de Eleitor:</strong> <span id="details-voterid"></span></p>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-500 text-sm mb-2">INFORMAÇÕES ADICIONAIS</h3>
+                            <p><strong>Data de Nasc.:</strong> <span id="details-dob"></span></p>
+                            <p><strong>Sexo:</strong> <span id="details-sexo"></span></p>
+                            <p><strong>Profissão:</strong> <span id="details-profissao"></span></p>
+                            <p><strong>Local de Trabalho:</strong> <span id="details-local-trabalho"></span></p>
+                            <p><strong>Indicado por:</strong> <span id="details-leader"></span></p>
+                            <div id="details-children" class="mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 p-4 flex justify-end gap-4 rounded-b-lg">
+                    <button id="details-share-location-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Partilhar Localização</button>
+                    <button id="details-view-map-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Ver no Mapa</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="demanda-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50">
+            <div class="bg-white rounded-lg p-8 shadow-2xl w-full max-w-md">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 id="demanda-modal-title" class="text-2xl font-bold">Nova Demanda</h2>
+                    <button id="close-demanda-modal-btn" class="text-gray-500 hover:text-gray-800 text-3xl leading-none">&times;</button>
+                </div>
+                <form id="demanda-form">
+                        <div class="mb-4">
+                            <label for="demanda-cidadao-search" class="block text-sm font-medium text-gray-700 mb-1">Buscar Cidadão</label>
+                            <input type="text" id="demanda-cidadao-search" placeholder="Digite 2+ letras para buscar cidadão..." class="w-full border border-gray-300 p-2 rounded-lg" autocomplete="off">
+                        </div>
+                        <div class="mb-4">
+                            <label for="demanda-cidadao-select" class="block text-sm font-medium text-gray-700 mb-1">Para o Cidadão</label>
+                            <select id="demanda-cidadao-select" class="w-full border border-gray-300 p-3 rounded-lg bg-white" required></select>
+                        </div>
+                    <div class="mb-4">
+                        <label for="demanda-title" class="block text-sm font-medium text-gray-700 mb-1">Título</label>
+                        <input type="text" id="demanda-title" class="w-full border border-gray-300 p-3 rounded-lg" required>
+                    </div>
+                    <div class="mb-6">
+                        <label for="demanda-description" class="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                        <textarea id="demanda-description" rows="3" class="w-full border border-gray-300 p-3 rounded-lg"></textarea>
+                    </div>
+                    <div class="flex justify-end gap-4">
+                        <button type="button" id="cancel-demanda-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg">Cancelar</button>
+                        <button type="submit" id="save-demanda-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-lg">Salvar Demanda</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="demanda-details-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50">
+            <div class="bg-white rounded-lg p-8 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+                <div class="flex justify-between items-center mb-6 border-b pb-4">
+                    <div class="flex-1">
+                        <h2 class="text-2xl font-bold" id="details-demanda-title"></h2>
+                        <p class="text-sm text-gray-500" id="details-demanda-cidadao"></p>
+                    </div>
+                     <div class="flex items-center gap-4">
+                        <button id="delete-demanda-btn" title="Excluir Demanda" class="p-2 rounded-full bg-red-100 text-red-600 hover:bg-red-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                        </button>
+                        <button id="close-demanda-details-btn" class="text-gray-500 hover:text-gray-800 text-3xl leading-none">&times;</button>
+                    </div>
+                </div>
+                <div class="flex-1 overflow-y-auto pr-4 -mr-4">
+                    <p class="text-gray-700 mb-4" id="details-demanda-description"></p>
+                    <div class="mb-4">
+                        <label for="details-demanda-status" class="block text-sm font-medium text-gray-700">Status</label>
+                        <select id="details-demanda-status" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                            <option value="pending">Pendente</option>
+                            <option value="inprogress">Em Andamento</option>
+                            <option value="completed">Concluída</option>
+                        </select>
+                    </div>
+                    <h3 class="text-lg font-semibold mt-6 mb-2 border-t pt-4">Histórico de Acompanhamento</h3>
+                    <div id="demanda-notes-list" class="space-y-3 mb-4"></div>
+                </div>
+                <form id="add-note-form" class="mt-4 border-t pt-4">
+                    <label for="new-note-text" class="block text-sm font-medium text-gray-700 mb-1">Adicionar Acompanhamento</label>
+                    <textarea id="new-note-text" rows="2" class="w-full border border-gray-300 p-2 rounded-lg" required></textarea>
+                    <div class="flex justify-end mt-2">
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Adicionar Nota</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div id="map-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center hidden z-50 p-4">
+             <div class="bg-white rounded-lg shadow-2xl w-full h-full flex flex-col">
+                <div class="p-4 border-b flex justify-between items-center">
+                    <h2 class="text-2xl font-bold text-gray-800">Localização dos Cidadãos</h2>
+                    <button id="close-map-btn" class="text-gray-500 hover:text-gray-800 text-3xl leading-none">&times;</button>
+                </div>
+                <div id="map" class="flex-1 rounded-b-lg"></div>
+            </div>
+        </div>
+        
+        <div id="confirmation-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center hidden z-50">
+            <div class="bg-white rounded-lg p-8 shadow-2xl w-full max-w-sm">
+                <h2 id="confirmation-title" class="text-xl font-bold mb-4">Confirmar Exclusão</h2>
+                <p id="confirmation-message" class="text-gray-600 mb-6">Você tem certeza?</p>
+                <div class="flex justify-end gap-4">
+                    <button id="cancel-delete-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg">Cancelar</button>
+                    <button id="confirm-delete-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg">Excluir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
